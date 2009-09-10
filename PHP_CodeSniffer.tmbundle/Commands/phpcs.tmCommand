@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>beforeRunningCommand</key>
+	<string>nop</string>
+	<key>command</key>
+	<string>#!/usr/bin/php
+&lt;?php
+/**
+ * TextMate PHP_CodeSniffer command.
+ */
+
+// IMPORTANT!
+// Update the path name to phpcs file here.
+// You need local installation of PHP_CodeSniffer.
+$phpcsPath = '/usr/local/bin/phpcs';
+
+
+//if (file_exists($phpcsPath) === FALSE) {
+if (true) {
+    echo '&lt;html&gt;&lt;head&gt;&lt;title&gt;PHP_CodeSniffer Not Found&lt;/title&gt;&lt;/head&gt;';
+    echo '&lt;body&gt;&lt;h3&gt;We have a problem here!&lt;/h3&gt;
+    &lt;p&gt;The path to PHP_CodeSniffer executable file is not found on your system.&lt;/p&gt;
+    &lt;p&gt;Please make sure you set the right path name before using this command.&lt;/p&gt;
+    &lt;p&gt;If you haven\'t installed PHP_CodeSniffer on your local machine yet, then try to install it first.&lt;/p&gt;
+    &lt;p&gt;You can find more detailed information about PHP_CodeSniffer package from &lt;a href="http://pear.php.net/package/PHP_CodeSniffer"&gt;PEAR website&lt;/a&gt;.&lt;/p&gt;
+    &lt;/body&gt;&lt;/html&gt;';
+} else if (is_executable($phpcsPath) === FALSE) {
+    
+} else {
+    error_reporting((E_ALL | E_STRICT));
+    // Get the filename to run the sniffs.
+    if (isset($_SERVER['TM_FILEPATH']) === TRUE) {
+        $fileName = $_SERVER['TM_FILEPATH'];
+    } else {
+        $fileName = dirname(__FILE__).'/test.php';
+    }
+
+    $result = array();
+    $result['errors']   = array();
+    $result['warnings'] = array();
+
+    // Run PHP_CodeSniffer with csv mode on the file.
+    $output  = array();
+    $options = array('--report=csv');
+    $command = $phpcsPath.' '.implode(' ', $options).' '.$fileName;
+    exec($command, $output);
+
+    // Collect the key indexes we are looking for.
+    $fields      = array(
+                    'File',
+                    'Line',
+                    'Column',
+                    'Severity',
+                    'Message',
+                   );
+    $keys        = array();
+    $headLineArr = explode(',', $output[0]);
+    foreach ($fields as $field) {
+        $idx = array_search($field, $headLineArr);
+        if ($idx !== FALSE) {
+            $keys[$field] = $idx;
+        }
+    }
+
+    // Loop through output array populating $result array.
+    $outputSize  = count($output);
+    $numOfFields = count($fields);
+    for ($i = 1; $i &lt; $outputSize; $i++) {
+        $lineArr = explode(',', $output[$i]);
+
+        // Comma separator might cause a problem here.
+        // Do some manual parsing.
+        if (count($lineArr) !== $numOfFields) {
+            $tmp      = array();
+            $newToken = '';
+            $concat   = FALSE;
+
+            foreach ($lineArr as $token) {
+                if ($concat === TRUE) {
+                    if (substr($token, -1) === '"') {
+                        $concat    = FALSE;
+                        $newToken .= $token;
+                        $tmp[]     = $newToken;
+                        $newToken  = '';
+                    } else {
+                        $newToken .= $token.' ';
+                    }
+                } else {
+                    if ($token[0] === '"') {
+                        if (substr($token, -1) === '"') {
+                            $tmp[] = $token;
+                        } else {
+                            $newToken .= $token.' ';
+                            $concat = TRUE;
+                        }
+                    } else {
+                        $tmp[] = $token;
+                    }
+                }
+            }
+
+            $lineArr = $tmp;
+        }//end if
+
+        if ($lineArr[$keys['Severity']] === 'error') {
+            $resultKey = 'errors';
+        } else if ($lineArr[$keys['Severity']] === 'warning') {
+            $resultKey = 'warnings';
+        }
+
+        $msg = str_replace('\"', '"', substr($lineArr[$keys['Message']], 1, -1));
+
+        $result[$resultKey][] = array(
+                                 'line'   =&gt; $lineArr[$keys['Line']],
+                                 'msg'    =&gt; $msg,
+                                 'column' =&gt; $lineArr[$keys['Column']],
+                                );
+    }//end for
+
+    $result['errors'] = array_reverse($result['errors']);
+    $result['warnings'] = array_reverse($result['warnings']);
+    $errorNum = count($result['errors']);
+    $warnNum  = count($result['warnings']);
+    ?&gt;
+
+    &lt;html&gt;
+    &lt;head&gt;
+    &lt;title&gt;PHP_CodeSniffer, &lt;?php echo $fileName; ?&gt;&lt;/title&gt;
+    &lt;style type="text/css"&gt;
+    body {
+        background-color: #ffffff;
+        color: red;
+        font-family: Arial,Helvetica,sans-serif;
+        font-size: 12px;
+    }
+    a, a:visited {
+        text-decoration: none;
+    }
+    a:hover {
+        color: black;
+    }
+
+    .error {
+      cursor: pointer;
+        border: 2px solid red;
+        background-color: #fff2f2;
+        width: 95%;
+        color: red;
+        margin-bottom: 7px;
+        padding: 3px;
+    }
+
+    .error.over {
+        background-color: #C64949;
+        color: #ffffff;
+    }
+
+    .warning {
+        border: 2px solid #9C8023;
+        background-color: #feffc2;
+        color: black;
+        width:95%;
+        margin-bottom: 7px;
+        padding: 3px;
+    }
+
+    .warning.over {
+      background-color: #9C8023;
+      color: #ffffff;
+    }
+
+    .type {
+        font-weight: bold;
+    }
+    .error-msg {
+        margin-top: 2px;
+    }
+    .summary {
+        width: 80%;
+        margin-bottom: 3px;
+        padding-bottom: 3px;
+        color: black;
+    }
+    .footer {
+        border-top: 1px solid black;
+        width: 95%;
+        margin-top: 3px;
+        padding-top: 3px;
+        color: black;
+    }
+    &lt;/style&gt;
+    &lt;script type="text/javascript"&gt;
+    var errors   = &lt;?php echo count($result['errors']); ?&gt;;
+    var warnings = &lt;?php echo count($result['warnings']); ?&gt;;
+    function init() {
+      var types = [
+        {
+          className: 'error',
+          classPrefix: 'e',
+          count: errors
+        },
+        {
+          className: 'warning',
+          classPrefix: 'w',
+          count: warnings
+        }
+      ];
+
+      var typesLen = types.length;
+
+      for (var i = 0; i &lt; typesLen; i++) {
+        for (var j = 1; j &lt;= types[i].count; j++) {
+          (function(idx, classN, classP) {
+            var id           = classP + idx;
+            var eElem        = document.getElementById(id);
+            var textMateLink = eElem.getAttribute('txmt');
+            var locked       = false;
+            eElem.onmouseover = function() {
+              if (locked === false) {
+                eElem.className = classN + ' over';
+              }
+            };
+
+            eElem.onmouseout = function() {
+              if (locked === false) {
+                eElem.className = classN;
+              }
+            };
+
+            eElem.onclick = function() {
+              if (locked === true) {
+                eElem.className = classN;
+              }
+
+              locked = !locked;
+
+              window.location = textMateLink;
+            };
+          }) (j, types[i].className, types[i].classPrefix);
+        }//end for types[i].count
+      }//end for typesLen
+    }
+
+    &lt;/script&gt;
+    &lt;/head&gt;
+    &lt;body onload="init();"&gt;
+
+    &lt;div class="summary"&gt;&lt;?php
+    $summary  = 'Found &lt;strong&gt;'.$errorNum. '&lt;/strong&gt; error';
+    $summary .= ($errorNum &gt; 1 ? 's': '');
+    $summary .= ' &lt;strong&gt;'.$warnNum. '&lt;/strong&gt; warning';
+    $summary .= ($warnNum &gt; 1 ? 's': '');
+    echo $summary;
+    ?&gt;&lt;/div&gt;
+
+    &lt;?php
+    if (empty($result) === TRUE) {
+        // Print something.
+    } else {
+        $fileUrlPrefix = 'txmt://open?url=file://';
+        $fileName      = $fileUrlPrefix.$fileName;
+
+        // Errors.
+        $count = 1;
+        foreach ($result['errors'] as $error) {
+            echo '
+                &lt;div id="e'.$count.'" class="error" txmt="'.$fileName.'&amp;line='.$error['line'].'&amp;column='.$error['column'].'"&gt;
+                    &lt;span class="type"&gt;Error&lt;/span&gt;
+                    &lt;span class="line"&gt;(line '.$error['line'].')&lt;/span&gt;
+                    &lt;div class="error-msg"&gt;'.$error['msg'].'&lt;/div&gt;
+                &lt;/div&gt;
+            ';
+            $count++;
+        }//end foreach
+
+        // Warnings.
+        $count = 1;
+        foreach ($result['warnings'] as $warning) {
+            echo '
+                &lt;div id="w'.$count.'" class="warning" txmt="'.$fileName.'&amp;line='.$warning['line'].'&amp;column='.$warning['column'].'"&gt;
+                    &lt;span class="type"&gt;Warning&lt;/span&gt;
+                    &lt;span class="line"&gt;(line '.$warning['line'].')&lt;/span&gt;
+                    &lt;div class="error-msg"&gt;'.$warning['msg'].'&lt;/div&gt;
+                &lt;/div&gt;
+            ';
+            $count++;
+        }//end foreach
+    }//end if
+    ?&gt;
+
+    &lt;div class="footer"&gt;
+    &lt;?php
+    $versionCommand = $phpcsPath.' --version';
+    $output = array();
+    exec($versionCommand, $output);
+    echo htmlentities(trim($output[0]));
+    ?&gt;
+    &lt;/div&gt;
+
+    &lt;/body&gt;
+    &lt;/html&gt;
+    &lt;?php
+}
+?&gt;</string>
+	<key>input</key>
+	<string>selection</string>
+	<key>keyEquivalent</key>
+	<string>@S</string>
+	<key>name</key>
+	<string>phpcs</string>
+	<key>output</key>
+	<string>showAsHTML</string>
+	<key>uuid</key>
+	<string>C21A63FC-0AA6-49ED-80EC-EA0B0DBEA0F0</string>
+</dict>
+</plist>
