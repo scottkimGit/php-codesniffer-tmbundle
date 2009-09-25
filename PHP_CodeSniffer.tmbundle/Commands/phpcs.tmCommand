@@ -17,8 +17,7 @@
 $phpcsPath = '/usr/local/bin/phpcs';
 
 
-//if (file_exists($phpcsPath) === FALSE) {
-if (true) {
+if (file_exists($phpcsPath) === FALSE) {
     echo '&lt;html&gt;&lt;head&gt;&lt;title&gt;PHP_CodeSniffer Not Found&lt;/title&gt;&lt;/head&gt;';
     echo '&lt;body&gt;&lt;h3&gt;We have a problem here!&lt;/h3&gt;
     &lt;p&gt;The path to PHP_CodeSniffer executable file is not found on your system.&lt;/p&gt;
