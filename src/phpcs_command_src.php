@@ -9,6 +9,8 @@
 // You need local installation of PHP_CodeSniffer.
 $phpcsPath = '/usr/local/bin/phpcs';
 
+// Set the following to specify phpcs standard to sniff with
+$phpcsStandards = '';
 
 if (file_exists($phpcsPath) === FALSE) {
     echo '<html><head><title>PHP_CodeSniffer Not Found</title></head>';
@@ -39,6 +41,7 @@ if (file_exists($phpcsPath) === FALSE) {
     // Run PHP_CodeSniffer with csv mode on the file.
     $output  = array();
     $options = array('--report=csv');
+    $options[] = ($phpcsStandards) ? '--standard='.$phpcsStandards : '';
     $command = $phpcsPath.' '.implode(' ', $options).' '.$fileName;
     exec($command, $output);
 
